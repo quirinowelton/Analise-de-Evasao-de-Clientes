@@ -1,50 +1,60 @@
 #%%
 import pandas as pd
 import plotly.express as px
+import seaborn as sns
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 url = 'https://raw.githubusercontent.com/alura-cursos/challenge2-data-science/refs/heads/main/TelecomX_Data.json'
 df = pd.read_json(url)
 
 df_normalized = pd.json_normalize(df.to_dict(orient='records'))
-#%%
-df_normalized.columns = df_normalized.columns.str.lower()
-df_normalized.columns = df_normalized.columns.str.replace(r'\.', '_', regex=True)
-df_normalized = df_normalized[df_normalized['churn'].notna() & (df_normalized['churn'] != '')]
-df_normalized['contas_diarias'] = round(df_normalized['account_charges_monthly'] / 30,2)
-#%%
-'''
-#substituindo Yes por 1 e No por 0, mas decidi não usar aqui
-#df_normalized['churn'] = df_normalized['churn'].apply(lambda x: 1 if x == 'Yes' else 0) #todas as opções abaixo fazem essa mesma função
-#df_normalized['churn'] = df_normalized['churn'].map({'Yes': 1, 'No': 0})
-#df_normalized['churn'] = np.where(df_normalized['churn'] == 'Yes', 1, 0)
-#df_normalized['churn'] = df_normalized['churn'].replace({'Yes': 1, 'No': 0})
-distribuicao_genero = df_normalized.groupby('churn').agg({'customer_gender':'count'}).reset_index()
-distribuicao_contrato = df_normalized.groupby('churn').agg({'account_contract':'count'}).reset_index()
-distribuicao_pagamento = df_normalized.groupby('churn').agg({'account_paymentmethod':'count'}).reset_index()
-distribuicao_contas_diarias = df_normalized.groupby('churn').agg({'contas_diarias':'count'}).reset_index()
-distribuicao_customer_partner = df_normalized.groupby('churn').agg({'customer_partner':'count'}).reset_index()'''
-distribuicao_churn = df_normalized.groupby('churn').agg({'customerid':'count'}).reset_index()
-distribuicao_genero = df_normalized.groupby(['customer_gender', 'churn']).size().reset_index(name='count')
-distribuicao_contrato = df_normalized.groupby(['account_contract', 'churn']).size().reset_index(name='count')
-distribuicao_pagamento = df_normalized.groupby(['account_paymentmethod', 'churn']).size().reset_index(name='count')
-distribuicao_customer_partner = df_normalized.groupby(['customer_partner', 'churn']).size().reset_index(name='count')
+df_normalized.head()
 
-#%%
+df_normalized['account.Charges.Total'] = pd.to_numeric(df_normalized['account.Charges.Total'], errors="coerce")
+# "coerce" faz com que as células com letras ou caracteres especieais fiquem vazias.
 
-def gerando_grafico_barra(dados,x,y):
-    fig = px.bar(
-    dados,
-    x=x,  # eixo X: male/female
-    y=y,            # altura da barra
-    color='churn',        # divide por 'sim' e 'não'
-    barmode='group',      # 'group' para barras lado a lado, 'stack' para empilhadas
-    text=y          # mostra o valor no topo da barra
-)
+df_normalized = df_normalized.drop("customerID", axis=1)
+# Comando alternativo à esse ultimo:
+# df_normalized = df_normalized.dropna(how="all", axis=1)
+# "dropna" é usada para excluir células vazias.
 
-    fig.update_traces(textposition='outside')
-    fig.write_html(f"{x}_churn.html")
+# ordenar em ordem decrescente as variáveis por seus valores ausentes
+percentual_nulos = (df_normalized.isnull().sum() / df_normalized.shape[0]).sort_values(ascending=False)
+df_normalized = df_normalized.dropna(how="any", axis=0)#Excluindo valores nulos na base
+#verificando se ainda existem valores nulos na base
+print(percentual_nulos)
+print(df_normalized.isna().any())
 
-gerando_grafico_barra(distribuicao_genero, "customer_gender", "count")
-gerando_grafico_barra(distribuicao_contrato, "account_contract", "count")
-gerando_grafico_barra(distribuicao_pagamento, "account_paymentmethod", "count")
-gerando_grafico_barra(distribuicao_customer_partner, "customer_partner", "count")
+df_normalized.describe()
+
+#porcentagens de sim e não
+analise_churn_total = df_normalized["Churn"].value_counts()
+analise_churn_percent =df_normalized["Churn"].value_counts(normalize=True).map("{:.2%}".format) # "map("{:.2%}".format" é usado para formatar o número.
+print(f'Analise de churn total:\n{analise_churn_total}')
+print(f'Analise de churn percentual:\n{analise_churn_percent}')
+
+coluna_excluida = ['account.Charges.Total']
+
+for coluna in df_normalized.columns:
+    if coluna not in coluna_excluida:
+        fig = px.histogram(
+            df_normalized,
+            x=coluna,
+            color="Churn",
+            text_auto=True,
+            title=f"Distribuição de {coluna} por Churn"
+        )
+        # Salva cada gráfico em um HTML com o nome da coluna
+        fig.write_html(f"{coluna}_churn.html")
+
+
+# gerando um gráfico de distribuição para a coluna 'TotalCharges'
+fig, ax = plt.subplots(figsize = (10, 4))
+sns.set_style('dark')
+sns.histplot(df_normalized['account.Charges.Total'], ax = ax, bins = 40, kde=True)
+ax.set_xlabel('')
+ax.set_title('Cobranças Totais')
+plt.tight_layout()
+plt.savefig('total-charge.jpg')
+plt.show()
