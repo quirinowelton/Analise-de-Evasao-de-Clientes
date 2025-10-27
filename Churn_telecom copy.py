@@ -68,7 +68,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 
 #model = RandomForestClassifier(random_state=42, n_jobs=-1)
-model = LogisticRegression(random_state=42, class_weight= 'balanced')
+model = LogisticRegression(random_state=42)
 
 
 #PARAMETROS RANDOM FOREST
@@ -141,3 +141,4 @@ print("AUC Teste: ", auc_test)
 #Importância das variáveis
 # Pipeline com GridSearchCV (modelo final)
 # Avaliação do modelo final
+
